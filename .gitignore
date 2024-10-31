@@ -1,2 +1,4 @@
-.xlxs
-.xls
+*.xlxs
+*.xls
+*.txt
+zpath/
