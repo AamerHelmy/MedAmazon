@@ -55,37 +55,42 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 			})
 			continue
 		}
+		// remove extra spaces
+		name := medName.RemoveExtraSapces(row[1])
+
+
 		if prevRow, exist := skusMap[row[0]]; exist {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("duplicate SKU found at row [%d]", prevRow+2).Error(),
+				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(name, "empty"), PricePts: 0, Error: fmt.Errorf("duplicate SKU found at row [%d]", prevRow+2).Error(),
 			})
 			continue
 		}
-		if prevRow, exist := nameMap[row[1]]; exist {
+		if prevRow, exist := nameMap[name]; exist {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("duplicate Name found at row [%d]", prevRow+2).Error(),
+				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(name, "empty"), PricePts: 0, Error: fmt.Errorf("duplicate Name found at row [%d]", prevRow+2).Error(),
 			})
 			continue
 		}
 		pts, err := price32.FromStringPounds(row[2])
 		if err != nil {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: i + 2, SKU: row[0], Name: row[1], PricePts: 0, Error: fmt.Errorf("wrong price: %v", err).Error(),
+				Row: i + 2, SKU: row[0], Name: name, PricePts: 0, Error: fmt.Errorf("wrong price: %v", err).Error(),
 			})
 			continue
 		}
+		skusMap[row[0]] = i
+		nameMap[name] = i
+
 		item := ExcelItemInfo{
-			Row:      i + 2,
-			SKU:      row[0],
-			Name:     medName.RemoveExtraSapces(row[1]),
-			CleanName: medName.Clean(row[1]),
-			PricePts: pts,
+			Row:       i + 2,
+			SKU:       row[0],
+			Name:      name, //medName.RemoveExtraSapces(name),
+			CleanName: medName.Clean(name),
+			PricePts:  pts,
 		}
 
-		skusMap[row[0]] = i
-		nameMap[row[1]] = i
 		excelItems = append(excelItems, item)
-		excelNames = append(excelNames, row[1])
+		excelNames = append(excelNames, name)
 		excelSkus = append(excelSkus, row[0])
 	}
 
@@ -108,53 +113,53 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 	}
 
 	// prepare update items and new items
-	updates := make([]models.Item, 0)
-	new := make([]models.Item, 0)
+	updateItems := make([]models.Item, 0)
+	newItems := make([]models.Item, 0)
 	for _, excelItem := range excelItems {
 		if existingSku, ok := existingSkuMap[excelItem.SKU]; ok {
 			if existingSku.Name == excelItem.Name && existingSku.PricePts == excelItem.PricePts {
 				report.Unchanged++
 
-			} else if existingName, exist := existingNameMap[excelItem.Name]; exist {
+			} else if existingName, exist := existingNameMap[excelItem.Name]; exist && existingSku.Name != excelItem.Name {
 				report.Failed = append(report.Failed, ExcelItemInfo{
 					Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
 				})
 			} else if existingSku.Name != excelItem.Name || existingSku.PricePts != excelItem.PricePts {
 				modelItem := excelItem.ToModelItem()
-				updates = append(updates, modelItem)
+				updateItems = append(updateItems, modelItem)
 				report.Updated++
 			}
 		} else if existingName, exist := existingNameMap[excelItem.Name]; exist {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
+				Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists with other SKu in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
 			})
 		} else {
 			modelItem := excelItem.ToModelItem()
-			new = append(new, modelItem)
+			newItems = append(newItems, modelItem)
 			report.NewItems++
 		}
 	}
 
 	// save items need update
-	if len(updates) > 0 {
+	if len(updateItems) > 0 {
 		updtResult := itmSv.gdb.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "sku"}},
 			DoUpdates: clause.AssignmentColumns([]string{"name", "price_pts"}),
-		}).CreateInBatches(updates, 1000)
+		}).CreateInBatches(updateItems, 1000)
 
 		if updtResult.Error != nil {
-			for _, item := range updates {
+			for _, item := range updateItems {
 				report.Updated--
 				report.Failed = append(report.Failed, ExcelItemInfo{SKU: item.SKU, Name: item.Name, PricePts: item.PricePts, Error: updtResult.Error.Error()})
 			}
 		}
 	}
 
-	// save new items
-	if len(new) > 0 {
-		err := itmSv.gdb.CreateInBatches(new, 100).Error
+	// save newItems items
+	if len(newItems) > 0 {
+		err := itmSv.gdb.CreateInBatches(newItems, 100).Error
 		if err != nil {
-			for _, item := range new {
+			for _, item := range newItems {
 				report.NewItems--
 				report.Failed = append(report.Failed, ExcelItemInfo{SKU: item.SKU, Name: item.Name, PricePts: item.PricePts, Error: err.Error()})
 			}
