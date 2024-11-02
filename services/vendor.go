@@ -176,7 +176,7 @@ func (venSv *VendorSv) UpdateOffersFromExcel(filePath string, vendor *models.Ven
 	return report, nil
 }
 
-// //////////////////////////////////////////////
+//////////////////////////////////////////
 // link single vendor item
 func (venSv *VendorSv) LinkVendorItem(vendorItem *models.VendorItem) error {
 	var existingLink models.VendorItem

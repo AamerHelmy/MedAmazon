@@ -84,7 +84,7 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 		item := ExcelItemInfo{
 			Row:       i + 2,
 			SKU:       row[0],
-			Name:      name, //medName.RemoveExtraSapces(name),
+			Name:      name,
 			CleanName: medName.Clean(name),
 			PricePts:  pts,
 		}

@@ -6,7 +6,7 @@ import (
 	"unicode"
 )
 
-// Main Clean :
+// Main Clean : كيتوفاااااان سعر قدديييييييم
 // - Remove Extra Spaces
 // - Removes all diacritical marks from the text
 // - Remove Unwanted Words

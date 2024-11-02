@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (venSv *VendorSv) AutoLinkItemsV3() (*MatchReport, error) {
+func (venSv *VendorSv) AutoLinkItems() (*MatchReport, error) {
 	report := MatchReport{
 		Name: "Auto Link Items",
 	}
@@ -32,7 +32,7 @@ func (venSv *VendorSv) AutoLinkItemsV3() (*MatchReport, error) {
 	toUpdate := make([]models.VendorItem, 0, len(vendorItems))
 
 	for _, vi := range vendorItems {
-		MatchResult := venSv.findBestMatchV3(vi, items)
+		MatchResult := venSv.findBestMatch(vi, items)
 
 		vi.Confidence = MatchResult.confidence
 		vi.BaseName = MatchResult.itemName
@@ -54,7 +54,7 @@ func (venSv *VendorSv) AutoLinkItemsV3() (*MatchReport, error) {
 		if err := venSv.gdb.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "id"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"base_item_id", "base_price", "is_linked", "link_date", "our_name", "confidence",
+				"base_item_id", "base_price", "is_linked", "link_date", "base_name", "confidence",
 			}),
 		}).CreateInBatches(toUpdate, int(matchConf.batchSize)).Error; err != nil {
 			return &report, fmt.Errorf("failed to update items: %w", err)
@@ -63,7 +63,7 @@ func (venSv *VendorSv) AutoLinkItemsV3() (*MatchReport, error) {
 	return &report, nil
 }
 
-func (venSv *VendorSv) findBestMatchV3(vi models.VendorItem, items []models.Item) *MatchResult {
+func (venSv *VendorSv) findBestMatch(vi models.VendorItem, items []models.Item) *MatchResult {
 	viName := medName.Clean(vi.Name)
 	var MatchResult MatchResult
 
