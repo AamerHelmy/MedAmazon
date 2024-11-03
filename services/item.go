@@ -44,22 +44,22 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 		}
 		if len(row) < 3 {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("short data in row.").Error(),
+				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("missing data in row.").Error(),
 			})
 			continue
 		}
 		if row[0] == "" || row[1] == "" || row[2] == "" {
-			getSafeString(row[0], " - ")
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("empty data in row").Error(),
+				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(row[1], "empty"), PricePts: 0, Error: fmt.Errorf("missing data in row").Error(),
 			})
 			continue
 		}
 		// remove extra spaces
+		sku := medName.RemoveExtraSapces(row[0])
 		name := medName.RemoveExtraSapces(row[1])
+		price := medName.RemoveExtraSapces(row[2])
 
-
-		if prevRow, exist := skusMap[row[0]]; exist {
+		if prevRow, exist := skusMap[sku]; exist {
 			report.Failed = append(report.Failed, ExcelItemInfo{
 				Row: i + 2, SKU: getSafeString(row[0], " - "), Name: getSafeString(name, "empty"), PricePts: 0, Error: fmt.Errorf("duplicate SKU found at row [%d]", prevRow+2).Error(),
 			})
@@ -71,19 +71,19 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 			})
 			continue
 		}
-		pts, err := price32.FromStringPounds(row[2])
+		pts, err := price32.FromStringPounds(price)
 		if err != nil {
 			report.Failed = append(report.Failed, ExcelItemInfo{
 				Row: i + 2, SKU: row[0], Name: name, PricePts: 0, Error: fmt.Errorf("wrong price: %v", err).Error(),
 			})
 			continue
 		}
-		skusMap[row[0]] = i
+		skusMap[sku] = i
 		nameMap[name] = i
 
 		item := ExcelItemInfo{
 			Row:       i + 2,
-			SKU:       row[0],
+			SKU:       sku,
 			Name:      name,
 			CleanName: medName.Clean(name),
 			PricePts:  pts,
@@ -121,20 +121,23 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 			// if no changes
 			if existingSku.Name == excelItem.Name && existingSku.PricePts == excelItem.PricePts {
 				report.Unchanged++
-				
-			} else if existingName, exist := existingNameMap[excelItem.Name]; exist && existingSku.Name != excelItem.Name {
+			// if name exist in other item in DB -> fail
+			} else if existingName, exist := existingNameMap[excelItem.Name]; exist {
 				report.Failed = append(report.Failed, ExcelItemInfo{
-					Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
+					Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this sku have item name that exists with another sku in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
 				})
+			// if need update ...
 			} else if existingSku.Name != excelItem.Name || existingSku.PricePts != excelItem.PricePts {
 				modelItem := excelItem.ToModelItem()
 				updateItems = append(updateItems, modelItem)
 				report.Updated++
 			}
+			// if new Sku but name exist in DB
 		} else if existingName, exist := existingNameMap[excelItem.Name]; exist {
 			report.Failed = append(report.Failed, ExcelItemInfo{
-				Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists with other SKu in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
+				Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists with other sku in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
 			})
+			// add new items
 		} else {
 			modelItem := excelItem.ToModelItem()
 			newItems = append(newItems, modelItem)

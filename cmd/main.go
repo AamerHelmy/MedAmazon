@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"fuzzyTest/db"
+	"fuzzyTest/medName"
 	"fuzzyTest/services"
 	"log"
 	"time"
@@ -27,6 +28,10 @@ func main() {
 	}
 	// print result
 	itemsUpdateReport.Print()
+
+	text := "  ketogan    50mg       "
+	textClean := medName.Clean(text)
+	log.Printf("(%v)",textClean)
 
 	// create new vendor
 	// ven1, err := vendorSv.AddNew("الاهرام")
