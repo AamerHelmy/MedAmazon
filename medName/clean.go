@@ -99,9 +99,11 @@ func RemoveExtraSapces(text string) string {
 	words := strings.Fields(text)
 	var result strings.Builder
 	result.Grow(len(text))
-	for _, word := range words {
+	for i, word := range words {
 		result.WriteString(word)
-		result.WriteRune(' ')
+		if i < len(words)-1 {
+			result.WriteRune(' ')
+		}
 	}
 	return result.String()
 }
