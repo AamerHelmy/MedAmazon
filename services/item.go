@@ -116,10 +116,12 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 	updateItems := make([]models.Item, 0)
 	newItems := make([]models.Item, 0)
 	for _, excelItem := range excelItems {
+		// check if sku is exist
 		if existingSku, ok := existingSkuMap[excelItem.SKU]; ok {
+			// if no changes
 			if existingSku.Name == excelItem.Name && existingSku.PricePts == excelItem.PricePts {
 				report.Unchanged++
-
+				
 			} else if existingName, exist := existingNameMap[excelItem.Name]; exist && existingSku.Name != excelItem.Name {
 				report.Failed = append(report.Failed, ExcelItemInfo{
 					Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this name already exists in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
@@ -144,7 +146,7 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 	if len(updateItems) > 0 {
 		updtResult := itmSv.gdb.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "sku"}},
-			DoUpdates: clause.AssignmentColumns([]string{"name", "price_pts"}),
+			DoUpdates: clause.AssignmentColumns([]string{"name", "price_pts", "clean_name"}),
 		}).CreateInBatches(updateItems, 1000)
 
 		if updtResult.Error != nil {

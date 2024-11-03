@@ -18,10 +18,10 @@ func main() {
 	gdb := db.GetGdb()
 
 	itemSv := services.NewItemService(gdb)
-	vendorSv := services.NewVenderService(gdb)
+	// vendorSv := services.NewVenderService(gdb)
 
 	// upload items with excel(xlsx)
-	itemsUpdateReport, err := itemSv.UpdateItemsFromExcel("zpath/excel/Items.xlsx")
+	itemsUpdateReport, err := itemSv.UpdateItemsFromExcel("zpath/excel/Items2.xlsx")
 	if err != nil {
 		log.Printf("error while CreateBulk: %v", err)
 	}
@@ -29,25 +29,25 @@ func main() {
 	itemsUpdateReport.Print()
 
 	// create new vendor
-	ven1, err := vendorSv.AddNew("الاهرام")
-	if err != nil {
-		log.Fatal("error while create vendor: ", err)
-	}
+	// ven1, err := vendorSv.AddNew("الاهرام")
+	// if err != nil {
+	// 	log.Fatal("error while create vendor: ", err)
+	// }
 
-	// upload vendor's offer
-	vendorOfferReport2, err := vendorSv.UpdateOffersFromExcel("zpath/excel/الاهرام.xlsx", ven1)
-	if err != nil {
-		log.Printf("error while updating vendor offer: %v", err)
-	}
-	// print result
-	vendorOfferReport2.Print()
+	// // upload vendor's offer
+	// vendorOfferReport2, err := vendorSv.UpdateOffersFromExcel("zpath/excel/الاهرام.xlsx", ven1)
+	// if err != nil {
+	// 	log.Printf("error while updating vendor offer: %v", err)
+	// }
+	// // print result
+	// vendorOfferReport2.Print()
 
-	// match all items
-	matchReport, err := vendorSv.AutoLinkItems()
-	if err != nil {
-		log.Printf("error while match vendor's items offer: %v", err)
-	}
-	matchReport.Print()
+	// // match all items
+	// matchReport, err := vendorSv.AutoLinkItems()
+	// if err != nil {
+	// 	log.Printf("error while match vendor's items offer: %v", err)
+	// }
+	// matchReport.Print()
 
 	fmt.Printf("\napp take time: %v ", time.Since(start))
 	fmt.Println("ending app ...")
