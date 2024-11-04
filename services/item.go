@@ -91,7 +91,7 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 
 		excelItems = append(excelItems, item)
 		excelNames = append(excelNames, name)
-		excelSkus = append(excelSkus, row[0])
+		excelSkus = append(excelSkus, sku)
 	}
 
 	// collect all exist items with same excelSku in our DB
@@ -115,17 +115,21 @@ func (itmSv *ItemSv) UpdateItemsFromExcel(filePath string) (*BulkReport, error) 
 	// prepare update items and new items
 	updateItems := make([]models.Item, 0)
 	newItems := make([]models.Item, 0)
+
 	for _, excelItem := range excelItems {
 		// check if sku is exist
 		if existingSku, ok := existingSkuMap[excelItem.SKU]; ok {
 			// if no changes
 			if existingSku.Name == excelItem.Name && existingSku.PricePts == excelItem.PricePts {
 				report.Unchanged++
+
 			// if name exist in other item in DB -> fail
-			} else if existingName, exist := existingNameMap[excelItem.Name]; exist {
+			} else if existingName, exist := existingNameMap[excelItem.Name]; exist && existingName.SKU != excelItem.SKU {
+
 				report.Failed = append(report.Failed, ExcelItemInfo{
 					Row: excelItem.Row, SKU: excelItem.SKU, Name: excelItem.Name, PricePts: excelItem.PricePts, Error: fmt.Errorf("this sku have item name that exists with another sku in db at id: %d | sku: %s", existingName.ID, existingName.SKU).Error(),
 				})
+				
 			// if need update ...
 			} else if existingSku.Name != excelItem.Name || existingSku.PricePts != excelItem.PricePts {
 				modelItem := excelItem.ToModelItem()
